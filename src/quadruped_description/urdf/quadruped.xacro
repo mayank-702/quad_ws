@@ -1,0 +1,246 @@
+<?xml version="1.0"?>
+<robot name="quadruped" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ================= BASE ================= -->
+  <link name="base_link">
+    <visual>
+      <geometry><box size="0.5 0.2 0.1"/></geometry>
+    </visual>
+    <collision>
+      <geometry><box size="0.5 0.2 0.1"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="1.5"/>
+      <origin xyz="0 0 0"/>
+      <inertia ixx="0.5" iyy="0.5" izz="0.5" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- ================= LEG MACRO ================= -->
+  <xacro:macro name="leg" params="prefix x y">
+
+    <!-- HIP -->
+    <link name="${prefix}_hip">
+      <visual>
+        <origin xyz="0 0 -0.03"/>
+        <geometry><cylinder length="0.06" radius="0.02"/></geometry>
+      </visual>
+      <collision>
+        <origin xyz="0 0 -0.03"/>
+        <geometry><cylinder length="0.06" radius="0.02"/></geometry>
+      </collision>
+      <inertial>
+        <mass value="0.1"/>
+        <origin xyz="0 0 -0.03"/>
+        <inertia ixx="0.0005" iyy="0.0005" izz="0.0001"
+                 ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+    </link>
+
+    <joint name="${prefix}_hip_joint" type="revolute">
+      <parent link="base_link"/>
+      <child link="${prefix}_hip"/>
+      <origin xyz="${x} ${y} -0.05"/>
+      <axis xyz="0 0 1"/>
+      <dynamics damping="10.0" friction="1.0"/>
+      <limit effort="50" velocity="0.5" lower="-1.5" upper="1.5"/>
+    </joint>
+
+    <!-- THIGH -->
+    <link name="${prefix}_thigh">
+      <visual>
+        <origin xyz="0 0 -0.075"/>
+        <geometry><box size="0.05 0.05 0.15"/></geometry>
+      </visual>
+      <collision>
+        <origin xyz="0 0 -0.075"/>
+        <geometry><box size="0.05 0.05 0.15"/></geometry>
+      </collision>
+      <inertial>
+        <mass value="0.5"/>
+        <origin xyz="0 0 -0.075"/>
+        <inertia ixx="0.001" iyy="0.001" izz="0.0005"
+                 ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+    </link>
+
+    <joint name="${prefix}_thigh_joint" type="revolute">
+      <parent link="${prefix}_hip"/>
+      <child link="${prefix}_thigh"/>
+      <origin xyz="0 0 -0.06"/>
+      <axis xyz="0 1 0"/>
+      <dynamics damping="10.0" friction="1.0"/>
+      <limit effort="50" velocity="0.5" lower="-1.5" upper="1.5"/>
+    </joint>
+
+    <!-- FOOT -->
+    <link name="${prefix}_foot">
+      <visual>
+        <origin xyz="0 0 -0.09"/>
+        <geometry><box size="0.05 0.05 0.18"/></geometry>
+      </visual>
+      <collision>
+        <origin xyz="0 0 -0.09"/>
+        <geometry><box size="0.05 0.05 0.18"/></geometry>
+      </collision>
+      <inertial>
+        <mass value="0.4"/>
+        <origin xyz="0 0 -0.1"/>
+        <inertia ixx="0.001" iyy="0.001" izz="0.0005"
+                 ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+    </link>
+      <gazebo reference="${prefix}_foot">
+        <mu1>5.0</mu1>
+        <mu2>5.0</mu2>
+        <kp>20000.0</kp>
+        <kd>5.0</kd>
+      </gazebo>
+    
+
+    <joint name="${prefix}_knee_joint" type="revolute">
+      <parent link="${prefix}_thigh"/>
+      <child link="${prefix}_foot"/>
+      <origin xyz="0 0 -0.15"/>
+      <axis xyz="0 1 0"/>
+      <dynamics damping="10.0" friction="1.0"/>
+      <limit effort="50" velocity="0.5" lower="-2.0" upper="0.0"/>
+    </joint>
+
+    <!-- TRANSMISSIONS -->
+    <transmission name="${prefix}_hip_trans">
+      <type>transmission_interface/SimpleTransmission</type>
+
+      <joint name="${prefix}_hip_joint">
+        <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+      </joint>
+
+      <actuator name="${prefix}_hip_motor">
+        <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+   </transmission>
+
+    <transmission name="${prefix}_thigh_trans">
+  <type>transmission_interface/SimpleTransmission</type>
+
+  <joint name="${prefix}_thigh_joint">
+    <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+  </joint>
+
+  <actuator name="${prefix}_thigh_motor">
+    <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+    <mechanicalReduction>1</mechanicalReduction>
+  </actuator>
+</transmission>
+
+   <transmission name="${prefix}_knee_trans">
+  <type>transmission_interface/SimpleTransmission</type>
+
+  <joint name="${prefix}_knee_joint">
+    <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+  </joint>
+
+  <actuator name="${prefix}_knee_motor">
+    <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+    <mechanicalReduction>1</mechanicalReduction>
+  </actuator>
+</transmission>
+
+  </xacro:macro>
+
+  <!-- ================= LEGS ================= -->
+  <xacro:leg prefix="front_left"  x="0.2"  y="0.1"/>
+  <xacro:leg prefix="front_right" x="0.2"  y="-0.1"/>
+  <xacro:leg prefix="rear_left"   x="-0.2" y="0.1"/>
+  <xacro:leg prefix="rear_right"  x="-0.2" y="-0.1"/>
+
+  <!-- ================= ROS2 CONTROL ================= -->
+  <ros2_control name="QuadrupedSystem" type="system">
+  <hardware>
+    <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+  </hardware>
+
+    <!-- 12 joints explicitly (NO xacro:for) -->
+    <!-- FRONT LEFT -->
+    <joint name="front_left_hip_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="front_left_thigh_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="front_left_knee_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+    <!-- FRONT RIGHT -->
+    <joint name="front_right_hip_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="front_right_thigh_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="front_right_knee_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+    <!-- REAR LEFT -->
+    <joint name="rear_left_hip_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="rear_left_thigh_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="rear_left_knee_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+    <!-- REAR RIGHT -->
+    <joint name="rear_right_hip_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="rear_right_thigh_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="rear_right_knee_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+  </ros2_control>
+
+  <gazebo>
+    <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
+      <parameters>$(find quadruped_description)/config/controllers.yaml</parameters>
+    </plugin>
+  </gazebo>
+  <gazebo>
+    <physics type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+  </gazebo>
+</robot>
